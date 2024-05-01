@@ -18,6 +18,7 @@ const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
 const FBIOPUT_VSCREENINFO: libc::c_ulong = 0x4601;
 const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
 const FBIOPAN_DISPLAY: libc::c_ulong = 0x4606;
+const FBIO_WAITFORVSYNC: libc::c_ulong = 0x40044620;// 0x40204620;
 
 const KDSETMODE: libc::c_ulong = 0x4B3A;
 const KD_TEXT: libc::c_ulong = 0x00;
@@ -194,6 +195,10 @@ impl Framebuffer {
         self.frame[..].copy_from_slice(&frame[..]);
     }
 
+    pub fn write_frame_offset(&mut self, frame: &[u8], offset: usize) {
+        self.frame[offset..offset+frame.len()].copy_from_slice(&frame[..]);
+    }
+
     ///Reads a frame from the framebuffer.
     pub fn read_frame(&self) -> &[u8] {
         &self.frame[..]
@@ -279,6 +284,17 @@ impl Framebuffer {
                 &format!("Ioctl returned -1: {}", errno()),
             )),
             ret => Ok(ret),
+        }
+    }
+
+    pub fn wait_for_vsync(&self) -> Result<(), FramebufferError> {
+        let zero = 0;
+        match unsafe { ioctl(self.device.as_raw_fd(), FBIO_WAITFORVSYNC as _, &zero) } {
+            -1 => Err(FramebufferError::new(
+                FramebufferErrorKind::IoctlFailed,
+                &format!("Ioctl returned -1: {}", errno()),
+            )),
+            ret => Ok(()),
         }
     }
 }
